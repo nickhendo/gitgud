@@ -1,0 +1,8 @@
+# Nix
+result*
+
+# Misc
+.direnv
+
+# air
+tmp/
