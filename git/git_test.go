@@ -42,7 +42,7 @@ func TestNewRepository(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, gotErr := NewRepository("", tt.orgName, tt.repoName)
+			_, gotErr := NewRemoteRepository("", tt.orgName, tt.repoName)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("NewRepository() failed: %v", gotErr)
@@ -75,7 +75,7 @@ func TestGitRepository_CreateBareRepo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g, err := NewRepository(tt.baseURL, tt.orgName, tt.repoName)
+			g, err := NewRemoteRepository(tt.baseURL, tt.orgName, tt.repoName)
 			defer g.DeleteRepo()
 
 			if err != nil {

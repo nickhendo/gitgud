@@ -9,50 +9,60 @@ import (
 	"strings"
 )
 
-func NewRepository(baseURL, orgName, repoName string) (GitRepository, error) {
+func NewRemoteRepository(baseURL, orgName, repoName string) (GitRemoteRepository, error) {
 	if strings.HasSuffix(repoName, ".git") {
-		return GitRepository{}, fmt.Errorf("bare repository name must not end with '.git' as it is added automatically")
+		return GitRemoteRepository{}, fmt.Errorf("bare repository name must not end with '.git' as it is added automatically")
 	}
 
 	if strings.Contains(repoName, " ") {
-		return GitRepository{}, fmt.Errorf("bare repository name must not contain spaces")
+		return GitRemoteRepository{}, fmt.Errorf("bare repository name must not contain spaces")
 	}
 
 	if strings.Contains(orgName, " ") {
-		return GitRepository{}, fmt.Errorf("org name must not contain spaces")
+		return GitRemoteRepository{}, fmt.Errorf("org name must not contain spaces")
 	}
 
 	fullRepoName := repoName + ".git"
-	return GitRepository{
+	return GitRemoteRepository{
 		Name:     repoName,
 		OrgName:  orgName,
 		FullName: fullRepoName,
 		CloneURL: fmt.Sprintf("%s/%s/%s", baseURL, orgName, fullRepoName),
-		IsBare:   true,
 
-		// Location of repo on filesystem
-		FullPath:      strings.Join([]string{config.Settings.RepositoriesLocation, orgName, fullRepoName}, "/"),
 		DefaultBranch: config.Settings.DefaultBranch,
 
-		tracePacket: config.Settings.Debug,
-		trace:       config.Settings.Debug,
-		curlVerbose: config.Settings.Debug,
+		GitRepository: GitRepository{
+			FullPath:    strings.Join([]string{config.Settings.RepositoriesLocation, orgName, fullRepoName}, "/"),
+			tracePacket: config.Settings.Debug,
+			trace:       config.Settings.Debug,
+			curlVerbose: config.Settings.Debug,
+		},
 	}, nil
 }
 
 type GitRepository struct {
-	Name          string
-	OrgName       string
-	FullName      string
-	FullPath      string
-	DefaultBranch string
-	CloneURL      string
-	IsBare        bool
+	// Location of repo on filesystem
+	FullPath string
 
 	// Debug settings
+
 	tracePacket bool
 	trace       bool
 	curlVerbose bool
+}
+
+type GitRemoteRepository struct {
+	GitRepository
+
+	Name          string
+	OrgName       string
+	FullName      string
+	DefaultBranch string
+	CloneURL      string
+}
+
+type GitClonedRepository struct {
+	GitRepository
 }
 
 func (g GitRepository) Command(name string, arg ...string) (*exec.Cmd, *strings.Builder, *strings.Builder) {
@@ -81,7 +91,7 @@ func (g GitRepository) Command(name string, arg ...string) (*exec.Cmd, *strings.
 
 // Create a new git remote (bare) repository at the configured FullPath.
 // Overwrite the DefaultBranch before calling this if required.
-func (g GitRepository) CreateBareRepo() error {
+func (g GitRemoteRepository) CreateBareRepo() error {
 	slog.Debug("creating repository", "path", g.FullPath)
 
 	command, stdOut, stdErr := g.Command(
@@ -138,10 +148,7 @@ func (g GitRepository) GetBranch() (string, error) {
 	return stdOut.String()[:stdOut.Len()-1], nil
 }
 
-func (g GitRepository) Clone(destination string) (GitRepository, error) {
-	if !g.IsBare {
-		return GitRepository{}, fmt.Errorf("can only clone a bare repo")
-	}
+func (g GitRemoteRepository) Clone(destination string) (GitClonedRepository, error) {
 	slog.Debug("cloning repository", "repo", g.CloneURL, "dest", destination)
 
 	clonePath := strings.Join([]string{config.Settings.ClonesLocation, g.OrgName, destination}, "/")
@@ -158,22 +165,20 @@ func (g GitRepository) Clone(destination string) (GitRepository, error) {
 
 	if err != nil {
 		slog.Error(stdErr.String())
-		return GitRepository{}, fmt.Errorf("failed to clone repository: %w", err)
+		return GitClonedRepository{}, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
 	slog.Debug("repository cloned.")
 
-	clonedRepo := g
+	clonedRepo := GitClonedRepository{
+		g.GitRepository,
+	}
 	clonedRepo.FullPath = clonePath
-	clonedRepo.IsBare = false
 
 	return clonedRepo, nil
 }
 
-func (g GitRepository) AddAll() error {
-	if g.IsBare {
-		return fmt.Errorf("can only work in cloned repo")
-	}
+func (g GitClonedRepository) AddAll() error {
 	slog.Debug("adding all files...")
 
 	command, stdOut, stdErr := g.Command(
@@ -197,10 +202,7 @@ func (g GitRepository) AddAll() error {
 	return nil
 }
 
-func (g GitRepository) Commit(message string) error {
-	if g.IsBare {
-		return fmt.Errorf("can only work in cloned repo")
-	}
+func (g GitClonedRepository) Commit(message string) error {
 	slog.Debug("committing...")
 
 	command, stdOut, stdErr := g.Command(
@@ -224,10 +226,7 @@ func (g GitRepository) Commit(message string) error {
 	return nil
 }
 
-func (g GitRepository) Push() error {
-	if g.IsBare {
-		return fmt.Errorf("can only work in cloned repo")
-	}
+func (g GitClonedRepository) Push() error {
 	slog.Debug("pushing...")
 
 	command, stdOut, stdErr := g.Command(

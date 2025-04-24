@@ -21,7 +21,7 @@ func TestDefaultBranch(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	testRepo, err := git.NewRepository(ts.URL, "test_org", remoteRepoName)
+	testRepo, err := git.NewRemoteRepository(ts.URL, "test_org", remoteRepoName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestClone(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	testRepo, err := git.NewRepository(ts.URL, "test_org", remoteRepoName)
+	testRepo, err := git.NewRemoteRepository(ts.URL, "test_org", remoteRepoName)
 	if err != nil {
 		t.Fatal(err)
 	}
