@@ -188,7 +188,7 @@ func TestGitRepository_CreateBareRepo(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "",
+			name:     "valid bare repo creation exists",
 			baseURL:  "",
 			orgName:  "test_org",
 			repoName: "test_repo",
