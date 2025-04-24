@@ -3,12 +3,17 @@ package config
 import (
 	"log/slog"
 	"os"
+	"testing"
 )
 
 var Settings AppSettings
 
 func init() {
 	appEnv := os.Getenv("APP_ENV")
+
+	if testing.Testing() {
+		appEnv = "test"
+	}
 	Settings = getSettings(appEnv)
 }
 
@@ -39,6 +44,7 @@ type AppSettings struct {
 	Debug                bool
 	AppEnv               AppEnv
 	DefaultBranch        string
+	BaseURL              string
 }
 
 func BaseSettings() AppSettings {
@@ -47,6 +53,7 @@ func BaseSettings() AppSettings {
 		ClonesLocation:       "clones",
 		Debug:                false,
 		DefaultBranch:        "main",
+		BaseURL:              "https://gitgud.com",
 	}
 
 	slog.SetLogLoggerLevel(slog.LevelInfo)
@@ -57,6 +64,7 @@ func BaseSettings() AppSettings {
 func DevelopmentSettings() AppSettings {
 	settings := BaseSettings()
 	settings.AppEnv = Development
+	settings.Debug = false
 
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 
@@ -72,5 +80,6 @@ func ProductionSettings() AppSettings {
 func TestSettings() AppSettings {
 	settings := DevelopmentSettings()
 	settings.AppEnv = Testing
+	settings.Debug = true
 	return settings
 }
