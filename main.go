@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"gitgud/config"
 	"log"
 	"log/slog"
 	"net/http"
@@ -25,16 +26,16 @@ func main() {
 
 func GetRouter() *http.ServeMux {
 	router := http.NewServeMux()
-	router.Handle("GET /repos/test/{repositoryName}/info/refs", errorHandler(GetRepoHandler))
-	router.Handle("POST /repos/test/{repositoryName}/{service}", errorHandler(PostServiceHandler))
+	router.Handle("GET /{orgName}/{repositoryName}/info/refs", errorHandler(GetRepoHandler))
+	router.Handle("POST /{orgName}/{repositoryName}/{service}", errorHandler(PostServiceHandler))
 	return router
 }
 
 func PostServiceHandler(writer http.ResponseWriter, request *http.Request) error {
 	service := request.PathValue("service")
 	repositoryName := request.PathValue("repositoryName")
-	repoLocation := "repositories"
-	repoPath := fmt.Sprintf("%s/%s", repoLocation, repositoryName)
+	orgName := request.PathValue("orgName")
+	repoPath := fmt.Sprintf("%s/%s/%s", config.Settings.RepositoriesLocation, orgName, repositoryName)
 
 	var cmd *exec.Cmd
 	logWriter := LogWriter{writer}
@@ -71,9 +72,9 @@ func PostServiceHandler(writer http.ResponseWriter, request *http.Request) error
 func GetRepoHandler(writer http.ResponseWriter, request *http.Request) error {
 	fmt.Printf("request.Method: %v\n", request.Method)
 	repositoryName := request.PathValue("repositoryName")
+	orgName := request.PathValue("orgName")
 	service := request.URL.Query().Get("service")
-	repoLocation := "repositories"
-	repoPath := fmt.Sprintf("%s/%s", repoLocation, repositoryName)
+	repoPath := fmt.Sprintf("%s/%s/%s", config.Settings.RepositoriesLocation, orgName, repositoryName)
 
 	var cmd *exec.Cmd
 
