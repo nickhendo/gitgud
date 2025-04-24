@@ -44,6 +44,85 @@ func (g Git) Command(name string, arg ...string) (*exec.Cmd, *strings.Builder, *
 	return command, &stdOut, &stdErr
 }
 
+func TestBranch(t *testing.T) {
+	if testing.Verbose() {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+	remoteRepoName := "test_repo.git"
+	clonedRepoName1 := "test_cloned_repo_1"
+
+	// Router needed for handling the specific URL
+	router := GetRouter()
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	cloneUrl := fmt.Sprintf("%s/repos/test/%s", ts.URL, remoteRepoName)
+
+	git := Git{
+		remoteName:  remoteRepoName,
+		cloneUrl:    cloneUrl,
+		tracePacket: testing.Verbose(),
+		trace:       testing.Verbose(),
+		curlVerbose: testing.Verbose(),
+	}
+
+	// Create a hosted repo
+	err := CreateRepo(remoteRepoName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer DeleteRepo(remoteRepoName)
+
+	contents, err := os.ReadFile(fmt.Sprintf("repositories/%s/HEAD", remoteRepoName))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "ref: refs/heads/main\n"
+	if string(contents) != expected {
+		t.Fatalf("HEAD contents -> expected: %s, got %s", expected, contents)
+	}
+
+	// Git clone the repo elsewhere
+	fmt.Printf("cloneUrl: %v\n", cloneUrl)
+	command, stdOut, stdErr := git.Command(
+		"git",
+		"clone",
+		cloneUrl,
+		fmt.Sprintf("repositories/%s", clonedRepoName1),
+	)
+	err = command.Run()
+
+	log.Println("Git clone stdOut: ", stdOut.String())
+	log.Println("Git clone stdErr: ", stdErr.String())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer DeleteRepo(clonedRepoName1)
+
+	command, stdOut, stdErr = git.Command(
+		"git",
+		"branch",
+		"--show-current",
+	)
+	command.Dir = strings.Join([]string{"repositories", clonedRepoName1}, "/")
+	err = command.Run()
+
+	log.Println("Git branch stdOut: ", stdOut.String())
+	log.Println("Git branch stdErr: ", stdErr.String())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected = "main\n"
+	if stdOut.String() != expected {
+		t.Fatalf("branch name -> expected: %s, got %s", expected, stdOut.String())
+	}
+}
+
 func TestClone(t *testing.T) {
 	remoteRepoName := "test_repo.git"
 	clonedRepoName1 := "test_cloned_repo_1"
@@ -197,9 +276,6 @@ func TestCreateRepo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if testing.Verbose() {
-				slog.SetLogLoggerLevel(slog.LevelDebug)
-			}
 			gotErr := CreateRepo(tt.repoName)
 			defer DeleteRepo(tt.repoName)
 			if gotErr != nil {

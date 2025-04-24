@@ -62,6 +62,8 @@ func PostServiceHandler(writer http.ResponseWriter, request *http.Request) error
 		return fmt.Errorf("unexpected service: %s", service)
 	}
 
+	cmd.Env = append(cmd.Env, "GIT_PROTOCOL=version=2")
+
 	cmd.Stdin = request.Body
 	cmd.Stdout = logWriter
 
@@ -98,6 +100,7 @@ func GetRepoHandler(writer http.ResponseWriter, request *http.Request) error {
 	default:
 		return fmt.Errorf("unexpected service: %s", service)
 	}
+	cmd.Env = append(cmd.Env, "GIT_PROTOCOL=version=2")
 
 	// Write the "# service=git-upload-pack" header in pkt-line format
 	fmt.Fprintf(customWriter, "%04x# service=%s\n", len("# service="+service)+5, service)
@@ -125,12 +128,12 @@ func CreateRepo(repoName string) error {
 	if strings.Contains(repoName, " ") {
 		return fmt.Errorf("bare repository name must not contain spaces")
 	}
-	defaultBranchName := "main"
+	// defaultBranchName := "main"
 	repoLocation := "repositories"
 
 	repoPath := strings.Join([]string{repoLocation, repoName}, "/")
 	slog.Debug("creating repository at", "path", repoPath)
-	command := exec.Command("git", "init", repoPath, "--bare")
+	command := exec.Command("git", "init", "--bare", "--initial-branch=main", repoPath)
 	slog.Debug("command.Args", "value", strings.Join(command.Args, ","))
 
 	var output strings.Builder
@@ -141,19 +144,66 @@ func CreateRepo(repoName string) error {
 		return err
 	}
 
+	// refsCommand := "\tls-refs.unborn = advertise\n"
+	// // err = os.WriteFile(fmt.Sprintf("repositories/%s/config", repoName), []byte(refsCommand), fs.ModeAppend)
+	// // if err != nil {
+	// // 	return err
+	// // }
+	// f, err := os.OpenFile(fmt.Sprintf("repositories/%s/config", repoName), os.O_APPEND|os.O_WRONLY, 0644)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// if _, err := f.Write([]byte(refsCommand)); err != nil {
+	// 	f.Close() // ignore error; Write error takes precedence
+	// 	log.Fatal(err)
+	// }
+	// if err := f.Close(); err != nil {
+	// 	log.Fatal(err)
+	// }
+
 	command2 := exec.Command(
 		"git",
-		"symbolic-ref",
-		"HEAD",
-		fmt.Sprintf("refs/heads/%s", defaultBranchName),
+		"-C",
+		".",
+		"config",
+		"lsrefs.unborn",
+		"advertise",
 	)
 	command2.Dir = repoPath
-	slog.Debug("command2", "value", command2.String())
+	slog.Debug("echo", "command", command2.String())
 	var output2 strings.Builder
 	command2.Stdout = &output2
 	err = command2.Run()
-	slog.Debug("output2", "value", output2.String())
+	slog.Debug("echo", "output", output2.String())
 
+	if err != nil {
+		return err
+	}
+
+	command3 := exec.Command(
+		"cat",
+		"config",
+	)
+	command3.Dir = repoPath
+	slog.Debug("cat", "command", command3.String())
+	var output3 strings.Builder
+	command3.Stdout = &output3
+	err = command3.Run()
+	slog.Debug("cat", "output", output3.String())
+
+	// command2 := exec.Command(
+	// 	"git",
+	// 	"symbolic-ref",
+	// 	"HEAD",
+	// 	fmt.Sprintf("refs/heads/%s", defaultBranchName),
+	// )
+	// command2.Dir = repoPath
+	// slog.Debug("command2", "value", command2.String())
+	// var output2 strings.Builder
+	// command2.Stdout = &output2
+	// err = command2.Run()
+	// slog.Debug("output2", "value", output2.String())
+	//
 	return err
 }
 
