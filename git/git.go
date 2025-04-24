@@ -11,7 +11,7 @@ import (
 
 func NewRemoteRepository(baseURL, orgName, repoName string) (GitRemoteRepository, error) {
 	if strings.HasSuffix(repoName, ".git") {
-		return GitRemoteRepository{}, fmt.Errorf("bare repository name must not end with '.git' as it is added automatically")
+		return GitRemoteRepository{}, fmt.Errorf("%s must not end with '.git' as it is added automatically", repoName)
 	}
 
 	if strings.Contains(repoName, " ") {
@@ -114,6 +114,49 @@ func (g GitRemoteRepository) CreateBareRepo() error {
 	return nil
 }
 
+func (g GitRemoteRepository) CallService(service string, advertiseRefs bool) *exec.Cmd {
+	slog.Debug("calling service", "service", service, "path", g.FullPath)
+
+	var command *exec.Cmd
+	if advertiseRefs {
+		command = exec.Command(
+			"git",
+			strings.Replace(service, "git-", "", 1),
+			"--stateless-rpc",
+			"--advertise-refs",
+			"--http-backend-info-refs",
+			".",
+		)
+	} else {
+		command = exec.Command(
+			"git",
+			strings.Replace(service, "git-", "", 1),
+			"--stateless-rpc",
+			".",
+		)
+	}
+
+	slog.Debug("command", "args", command)
+
+	command.Dir = g.FullPath
+
+	command.Env = append(command.Env, "GIT_PROTOCOL=version=2")
+
+	if g.tracePacket {
+		command.Env = append(command.Env, "GIT_TRACE_PACKET=1")
+	}
+
+	if g.trace {
+		command.Env = append(command.Env, "GIT_TRACE=1")
+	}
+
+	if g.curlVerbose {
+		command.Env = append(command.Env, "GIT_CURL_VERBOSE=1")
+	}
+
+	return command
+}
+
 // Delete the remote repository if it exists.
 func (g GitRepository) DeleteRepo() error {
 	slog.Debug("attempting to delete", "path", g.FullPath)
@@ -149,9 +192,9 @@ func (g GitRepository) GetBranch() (string, error) {
 }
 
 func (g GitRemoteRepository) Clone(destination string) (GitClonedRepository, error) {
-	slog.Debug("cloning repository", "repo", g.CloneURL, "dest", destination)
-
 	clonePath := strings.Join([]string{config.Settings.ClonesLocation, g.OrgName, destination}, "/")
+	slog.Debug("cloning repository", "repo", g.CloneURL, "dest", clonePath)
+
 	command, stdOut, stdErr := g.Command(
 		"git",
 		"clone",

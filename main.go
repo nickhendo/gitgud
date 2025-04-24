@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"gitgud/config"
+	"gitgud/git"
 	"log"
 	"log/slog"
 	"net/http"
-	"os/exec"
+	"slices"
 	"strings"
 )
 
@@ -26,87 +27,93 @@ func main() {
 
 func GetRouter() *http.ServeMux {
 	router := http.NewServeMux()
-	router.Handle("GET /{orgName}/{repositoryName}/info/refs", errorHandler(GetRepoHandler))
+	router.Handle("GET /{orgName}/{repositoryName}/info/refs", errorHandler(GetServiceHandler))
 	router.Handle("POST /{orgName}/{repositoryName}/{service}", errorHandler(PostServiceHandler))
 	return router
 }
 
 func PostServiceHandler(writer http.ResponseWriter, request *http.Request) error {
-	service := request.PathValue("service")
 	repositoryName := request.PathValue("repositoryName")
 	orgName := request.PathValue("orgName")
-	repoPath := fmt.Sprintf("%s/%s/%s", config.Settings.RepositoriesLocation, orgName, repositoryName)
 
-	var cmd *exec.Cmd
+	if !strings.HasSuffix(repositoryName, ".git") {
+		return fmt.Errorf("invalid repository name %s", repositoryName)
+	}
+
+	repositoryName = strings.ReplaceAll(repositoryName, ".git", "")
+
+	remoteRepo, err := git.NewRemoteRepository(config.Settings.BaseURL, orgName, repositoryName)
+	if err != nil {
+		return err
+	}
+
 	logWriter := LogWriter{writer}
 
-	switch service {
-	case "git-upload-pack":
-		writer.Header().Set("Content-Type", "application/x-git-upload-pack-result")
-		cmd = exec.Command("git", "upload-pack", "--stateless-rpc", "--strict", repoPath)
-	case "git-receive-pack":
-		writer.Header().Set("Content-Type", "application/x-git-receive-pack-result")
-		writer.WriteHeader(http.StatusOK)
-		cmd = exec.Command("git", "receive-pack", "--stateless-rpc", repoPath)
-	default:
+	service := request.PathValue("service")
+	if !slices.Contains([]string{"git-upload-pack", "git-receive-pack"}, service) {
 		return fmt.Errorf("unexpected service: %s", service)
 	}
 
-	cmd.Env = append(cmd.Env, "GIT_PROTOCOL=version=2")
+	writer.Header().Set("Content-Type", fmt.Sprintf("application/x-%s-result", service))
 
-	cmd.Stdin = request.Body
-	cmd.Stdout = logWriter
+	command := remoteRepo.CallService(service, false)
+
+	// Passing the body from the request into the git service command
+	command.Stdin = request.Body
+	command.Stdout = logWriter
 
 	var stdErr strings.Builder
-	cmd.Stderr = &stdErr
+	command.Stderr = &stdErr
 
-	err := cmd.Run()
+	err = command.Run()
+
 	if err != nil {
-		log.Printf("%s error: %v, stderr: %s", service, err, stdErr.String())
+		return fmt.Errorf("failure calling service %s: %w", service, err)
 	}
 
-	writer.WriteHeader(http.StatusOK)
 	return err
 }
 
-func GetRepoHandler(writer http.ResponseWriter, request *http.Request) error {
-	fmt.Printf("request.Method: %v\n", request.Method)
+func GetServiceHandler(writer http.ResponseWriter, request *http.Request) error {
 	repositoryName := request.PathValue("repositoryName")
 	orgName := request.PathValue("orgName")
+
+	if !strings.HasSuffix(repositoryName, ".git") {
+		return fmt.Errorf("invalid repository name %s", repositoryName)
+	}
+
+	repositoryName = strings.ReplaceAll(repositoryName, ".git", "")
+
+	remoteRepo, err := git.NewRemoteRepository(config.Settings.BaseURL, orgName, repositoryName)
+	if err != nil {
+		return err
+	}
+
+	logWriter := LogWriter{writer}
+
 	service := request.URL.Query().Get("service")
-	repoPath := fmt.Sprintf("%s/%s/%s", config.Settings.RepositoriesLocation, orgName, repositoryName)
-
-	var cmd *exec.Cmd
-
-	customWriter := LogWriter{writer}
-
-	switch service {
-	case "git-upload-pack":
-		writer.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-		cmd = exec.Command("git", "upload-pack", "--stateless-rpc", "--advertise-refs", repoPath)
-	case "git-receive-pack":
-		writer.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
-		cmd = exec.Command("git", "receive-pack", "--stateless-rpc", "--advertise-refs", repoPath)
-	default:
+	if !slices.Contains([]string{"git-upload-pack", "git-receive-pack"}, service) {
 		return fmt.Errorf("unexpected service: %s", service)
 	}
-	cmd.Env = append(cmd.Env, "GIT_PROTOCOL=version=2")
 
-	// Write the "# service=git-upload-pack" header in pkt-line format
-	fmt.Fprintf(customWriter, "%04x# service=%s\n", len("# service="+service)+5, service)
-	customWriter.Write([]byte("0000"))
+	writer.Header().Set("Content-Type", fmt.Sprintf("application/x-%s-advertisement", service))
 
-	cmd.Stdout = customWriter
+	// Write the service when advertising
+	fmt.Fprintf(logWriter, "%04x# service=%s\n", len("# service="+service)+5, service)
+	logWriter.Write([]byte("0000"))
+
+	command := remoteRepo.CallService(service, true)
 
 	var stdErr strings.Builder
-	cmd.Stderr = &stdErr
+	command.Stdout = logWriter
+	command.Stderr = &stdErr
 
-	err := cmd.Run()
+	err = command.Run()
+
 	if err != nil {
-		log.Printf("%s error: %v, stderr: %s", service, err, stdErr.String())
+		return fmt.Errorf("failure calling service %s: %w", service, err)
 	}
 
-	writer.WriteHeader(http.StatusOK)
 	return err
 }
 
