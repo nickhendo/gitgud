@@ -5,6 +5,26 @@ import (
 	"os"
 )
 
+var Settings AppSettings
+
+func init() {
+	appEnv := os.Getenv("APP_ENV")
+	Settings = getSettings(appEnv)
+}
+
+func getSettings(appEnv string) AppSettings {
+	switch appEnv {
+	case "test":
+		return TestSettings()
+	case "dev":
+		return DevelopmentSettings()
+	case "prod":
+		return ProductionSettings()
+	default:
+		return BaseSettings()
+	}
+}
+
 type AppEnv string
 
 const (
@@ -54,18 +74,3 @@ func TestSettings() AppSettings {
 	settings.AppEnv = Testing
 	return settings
 }
-
-var Settings = func() AppSettings {
-	appEnv := os.Getenv("APP_ENV")
-	var config AppSettings
-	switch appEnv {
-	case "test":
-		config = TestSettings()
-	case "dev":
-		config = DevelopmentSettings()
-	default:
-		config = ProductionSettings()
-	}
-
-	return config
-}()
