@@ -23,17 +23,6 @@ func main() {
 	}
 }
 
-type errorHandler func(http.ResponseWriter, *http.Request) error
-
-func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	err := fn(w, r)
-	if err != nil {
-		slog.Error("Unexpected error in ServeHTTP", "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
 func GetRouter() *http.ServeMux {
 	router := http.NewServeMux()
 	router.Handle("GET /repos/test/{repositoryName}/info/refs", errorHandler(GetRepoHandler))
@@ -120,104 +109,15 @@ func GetRepoHandler(writer http.ResponseWriter, request *http.Request) error {
 	return err
 }
 
-func CreateRepo(repoName string) error {
-	if !strings.HasSuffix(repoName, ".git") {
-		return fmt.Errorf("bare repository name must end with '.git'")
-	}
+type errorHandler func(http.ResponseWriter, *http.Request) error
 
-	if strings.Contains(repoName, " ") {
-		return fmt.Errorf("bare repository name must not contain spaces")
-	}
-	// defaultBranchName := "main"
-	repoLocation := "repositories"
-
-	repoPath := strings.Join([]string{repoLocation, repoName}, "/")
-	slog.Debug("creating repository at", "path", repoPath)
-	command := exec.Command("git", "init", "--bare", "--initial-branch=main", repoPath)
-	slog.Debug("command.Args", "value", strings.Join(command.Args, ","))
-
-	var output strings.Builder
-	command.Stdout = &output
-	err := command.Run()
-	slog.Debug(output.String())
+func (fn errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	err := fn(w, r)
 	if err != nil {
-		return err
+		slog.Error("Unexpected error in ServeHTTP", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-
-	// refsCommand := "\tls-refs.unborn = advertise\n"
-	// // err = os.WriteFile(fmt.Sprintf("repositories/%s/config", repoName), []byte(refsCommand), fs.ModeAppend)
-	// // if err != nil {
-	// // 	return err
-	// // }
-	// f, err := os.OpenFile(fmt.Sprintf("repositories/%s/config", repoName), os.O_APPEND|os.O_WRONLY, 0644)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// if _, err := f.Write([]byte(refsCommand)); err != nil {
-	// 	f.Close() // ignore error; Write error takes precedence
-	// 	log.Fatal(err)
-	// }
-	// if err := f.Close(); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	command2 := exec.Command(
-		"git",
-		"-C",
-		".",
-		"config",
-		"lsrefs.unborn",
-		"advertise",
-	)
-	command2.Dir = repoPath
-	slog.Debug("echo", "command", command2.String())
-	var output2 strings.Builder
-	command2.Stdout = &output2
-	err = command2.Run()
-	slog.Debug("echo", "output", output2.String())
-
-	if err != nil {
-		return err
-	}
-
-	command3 := exec.Command(
-		"cat",
-		"config",
-	)
-	command3.Dir = repoPath
-	slog.Debug("cat", "command", command3.String())
-	var output3 strings.Builder
-	command3.Stdout = &output3
-	err = command3.Run()
-	slog.Debug("cat", "output", output3.String())
-
-	// command2 := exec.Command(
-	// 	"git",
-	// 	"symbolic-ref",
-	// 	"HEAD",
-	// 	fmt.Sprintf("refs/heads/%s", defaultBranchName),
-	// )
-	// command2.Dir = repoPath
-	// slog.Debug("command2", "value", command2.String())
-	// var output2 strings.Builder
-	// command2.Stdout = &output2
-	// err = command2.Run()
-	// slog.Debug("output2", "value", output2.String())
-	//
-	return err
-}
-
-func DeleteRepo(repoName string) error {
-	repoLocation := "repositories"
-
-	input := strings.Join([]string{repoLocation, repoName}, "/")
-	slog.Debug("attempting to delete repository", "path", input)
-	command := exec.Command("rm", "-rf", input)
-	var output strings.Builder
-	command.Stdout = &output
-	err := command.Run()
-	slog.Debug("command", "output", output.String())
-	return err
 }
 
 type LogWriter struct {

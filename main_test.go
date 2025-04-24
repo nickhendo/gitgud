@@ -6,43 +6,9 @@ import (
 	"log/slog"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 )
-
-type Git struct {
-	remoteName string
-	cloneUrl   string
-
-	tracePacket bool
-	trace       bool
-	curlVerbose bool
-}
-
-func (g Git) Command(name string, arg ...string) (*exec.Cmd, *strings.Builder, *strings.Builder) {
-	command := exec.Command(name, arg...)
-
-	if g.tracePacket {
-		command.Env = append(command.Env, "GIT_TRACE_PACKET=1")
-	}
-
-	if g.trace {
-		command.Env = append(command.Env, "GIT_TRACE=1")
-	}
-
-	if g.curlVerbose {
-		command.Env = append(command.Env, "GIT_CURL_VERBOSE=1")
-	}
-
-	var stdOut strings.Builder
-	var stdErr strings.Builder
-
-	command.Stdout = &stdOut
-	command.Stderr = &stdErr
-
-	return command, &stdOut, &stdErr
-}
 
 func TestBranch(t *testing.T) {
 	if testing.Verbose() {
@@ -59,19 +25,21 @@ func TestBranch(t *testing.T) {
 	cloneUrl := fmt.Sprintf("%s/repos/test/%s", ts.URL, remoteRepoName)
 
 	git := Git{
-		remoteName:  remoteRepoName,
-		cloneUrl:    cloneUrl,
-		tracePacket: testing.Verbose(),
-		trace:       testing.Verbose(),
-		curlVerbose: testing.Verbose(),
+		remoteName:    remoteRepoName,
+		cloneUrl:      cloneUrl,
+		defaultBranch: "main",
+		repoLocation:  "repositories",
+		tracePacket:   testing.Verbose(),
+		trace:         testing.Verbose(),
+		curlVerbose:   testing.Verbose(),
 	}
 
 	// Create a hosted repo
-	err := CreateRepo(remoteRepoName)
+	err := git.CreateBareRepo(remoteRepoName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer DeleteRepo(remoteRepoName)
+	defer git.DeleteRepo(remoteRepoName)
 
 	contents, err := os.ReadFile(fmt.Sprintf("repositories/%s/HEAD", remoteRepoName))
 	if err != nil {
@@ -100,7 +68,7 @@ func TestBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer DeleteRepo(clonedRepoName1)
+	defer git.DeleteRepo(clonedRepoName1)
 
 	command, stdOut, stdErr = git.Command(
 		"git",
@@ -140,19 +108,21 @@ func TestClone(t *testing.T) {
 	cloneUrl := fmt.Sprintf("%s/repos/test/%s", ts.URL, remoteRepoName)
 
 	git := Git{
-		remoteName:  remoteRepoName,
-		cloneUrl:    cloneUrl,
-		tracePacket: testing.Verbose(),
-		trace:       testing.Verbose(),
-		curlVerbose: testing.Verbose(),
+		remoteName:    remoteRepoName,
+		cloneUrl:      cloneUrl,
+		defaultBranch: "main",
+		repoLocation:  "repositories",
+		tracePacket:   testing.Verbose(),
+		trace:         testing.Verbose(),
+		curlVerbose:   testing.Verbose(),
 	}
 
 	// Create a hosted repo
-	err := CreateRepo(remoteRepoName)
+	err := git.CreateBareRepo(remoteRepoName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer DeleteRepo(remoteRepoName)
+	defer git.DeleteRepo(remoteRepoName)
 
 	// Git clone the repo elsewhere
 	fmt.Printf("cloneUrl: %v\n", cloneUrl)
@@ -171,7 +141,7 @@ func TestClone(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer DeleteRepo(clonedRepoName1)
+	defer git.DeleteRepo(clonedRepoName1)
 
 	// Create new file, add, commit and push to remote
 	err = os.WriteFile(fmt.Sprintf("repositories/%s/readme.md", clonedRepoName1), []byte(fileContents), 0644)
@@ -242,7 +212,7 @@ func TestClone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer DeleteRepo(clonedRepoName2)
+	defer git.DeleteRepo(clonedRepoName2)
 
 	contents, err := os.ReadFile(fmt.Sprintf("repositories/%s/readme.md", clonedRepoName2))
 	if err != nil {
@@ -274,10 +244,17 @@ func TestCreateRepo(t *testing.T) {
 			wantErr:  true,
 		},
 	}
+	git := Git{
+		defaultBranch: "main",
+		repoLocation:  "repositories",
+		tracePacket:   testing.Verbose(),
+		trace:         testing.Verbose(),
+		curlVerbose:   testing.Verbose(),
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotErr := CreateRepo(tt.repoName)
-			defer DeleteRepo(tt.repoName)
+			gotErr := git.CreateBareRepo(tt.repoName)
+			defer git.DeleteRepo(tt.repoName)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("CreateRepo() failed: %v", gotErr)
