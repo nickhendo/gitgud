@@ -32,7 +32,7 @@ func NewRemoteRepository(baseURL, orgName, repoName string) (GitRemoteRepository
 		DefaultBranch: config.Settings.DefaultBranch,
 
 		GitRepository: GitRepository{
-			FullPath:    strings.Join([]string{config.Settings.RepositoriesLocation, orgName, fullRepoName}, "/"),
+			FullPath:    strings.Join([]string{"..", config.Settings.RepositoriesLocation, orgName, fullRepoName}, "/"),
 			tracePacket: config.Settings.Debug,
 			trace:       config.Settings.Debug,
 			curlVerbose: config.Settings.Debug,

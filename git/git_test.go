@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"os/exec"
 	"testing"
 )
 
@@ -96,6 +97,41 @@ func TestGitRepository_CreateBareRepo(t *testing.T) {
 			_, err = os.Stat(g.FullPath)
 			if errors.Is(err, fs.ErrNotExist) {
 				t.Fatal("repository does not exist after creation")
+			}
+		})
+	}
+}
+
+func TestGitRepository_Command(t *testing.T) {
+	tests := []struct {
+		testName string // description of this test case
+		// Named input parameters for target function.
+		name       string
+		arg        []string
+		want       *exec.Cmd
+		wantStdOut string
+		wantStdErr string
+	}{
+		{
+			testName:   "generic command",
+			name:       "ls",
+			arg:        []string{"-1"},
+			want:       &exec.Cmd{},
+			wantStdOut: "git.go\ngit_test.go\n",
+			wantStdErr: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			var g GitRepository
+			gotCommand, gotStdOut, gotStdErr := g.Command(tt.name, tt.arg...)
+			gotCommand.Run()
+
+			if gotStdOut.String() != tt.wantStdOut {
+				t.Errorf("Command.StdOut = %v, want %v", gotStdOut, tt.wantStdOut)
+			}
+			if gotStdErr.String() != tt.wantStdErr {
+				t.Errorf("Command.StdErr = %v, want %v", gotStdErr, tt.wantStdErr)
 			}
 		})
 	}
