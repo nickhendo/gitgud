@@ -18,6 +18,7 @@
         nativeBuildInputs = with pkgs; [
           go
           air
+          tailwindcss_4
         ];
         buildInputs = with pkgs; [];
       in {

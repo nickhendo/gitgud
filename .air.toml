@@ -5,9 +5,9 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ."
+  cmd = "go build -buildvcs=false -o ./tmp/main ."
   delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "repositories"]
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "repositories", "clones", "test_repositories", "test_clones", "git/test_repositories"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
@@ -21,7 +21,7 @@ tmp_dir = "tmp"
   poll = false
   poll_interval = 0
   post_cmd = []
-  pre_cmd = []
+  pre_cmd = ["tailwindcss -i static/tailwind.css -o static/styles.css"]
   rerun = false
   rerun_delay = 500
   send_interrupt = false
@@ -43,9 +43,9 @@ tmp_dir = "tmp"
   clean_on_exit = false
 
 [proxy]
-  app_port = 0
-  enabled = false
-  proxy_port = 0
+  enabled = true 
+  app_port = 1323
+  proxy_port = 1324
 
 [screen]
   clear_on_rebuild = false
