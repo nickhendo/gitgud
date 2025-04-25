@@ -27,12 +27,12 @@ func NewRemoteRepository(baseURL, orgName, repoName string) (GitRemoteRepository
 		Name:     repoName,
 		OrgName:  orgName,
 		FullName: fullRepoName,
-		CloneURL: fmt.Sprintf("%s/%s/%s", baseURL, orgName, fullRepoName),
+		CloneURL: fmt.Sprintf("%s/git/%s/%s", baseURL, orgName, fullRepoName),
 
 		DefaultBranch: config.Settings.DefaultBranch,
 
 		GitRepository: GitRepository{
-			FullPath:    strings.Join([]string{"..", config.Settings.RepositoriesLocation, orgName, fullRepoName}, "/"),
+			FullPath:    strings.Join([]string{config.Settings.RepositoriesLocation, orgName, fullRepoName}, "/"),
 			tracePacket: config.Settings.Debug,
 			trace:       config.Settings.Debug,
 			curlVerbose: config.Settings.Debug,
@@ -87,6 +87,56 @@ func (g GitRepository) Command(name string, arg ...string) (*exec.Cmd, *strings.
 	command.Stderr = &stdErr
 
 	return command, &stdOut, &stdErr
+}
+
+type File struct {
+	Name string
+}
+
+type EmptyRepositoryError struct {
+	BranchName string
+}
+
+func (e EmptyRepositoryError) Error() string {
+	return fmt.Sprintf("repository is empty on branch: %s", e.BranchName)
+}
+
+// Return a slice of files from the given branch of the GitRepository
+func (g GitRepository) GetFiles(branchName string) ([]File, error) {
+	slog.Debug("getting files...")
+
+	command, stdOut, stdErr := g.Command(
+		"git",
+		"ls-tree",
+		branchName,
+		"--full-tree",
+		"-r",
+		"--name-only",
+	)
+	command.Dir = g.FullPath
+
+	err := command.Run()
+	slog.Debug(stdOut.String())
+	slog.Error(stdErr.String())
+
+	if err != nil {
+		if err.Error() == "exit status 128" && strings.Contains(stdErr.String(), fmt.Sprintf("fatal: Not a valid object name %s\n", branchName)) {
+			return []File{}, EmptyRepositoryError{branchName}
+		}
+
+		return []File{}, fmt.Errorf("failure looking for files in git repo: %s (%w)", stdErr.String(), err)
+	}
+
+	slog.Debug("files retrieved.")
+
+	files := strings.Split(stdOut.String(), "\n")
+	files = files[:len(files)-1]
+	fileList := []File{}
+	for _, fileName := range files {
+		fileList = append(fileList, File{fileName})
+	}
+
+	return fileList, nil
 }
 
 // Create a new git remote (bare) repository at the configured FullPath.
@@ -241,6 +291,51 @@ func (g GitClonedRepository) AddAll() error {
 	}
 
 	slog.Debug("all files added.")
+
+	return nil
+}
+
+func (g GitClonedRepository) GetConfig() (string, error) {
+	slog.Debug("getting config...")
+
+	command, stdOut, stdErr := g.Command(
+		"git",
+		"config",
+		"--list",
+	)
+	command.Dir = g.FullPath
+
+	err := command.Run()
+	slog.Debug(stdOut.String())
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get config: %s (%w)", stdErr, err)
+	}
+
+	slog.Debug("Config retrieved.")
+
+	return stdOut.String(), nil
+}
+
+func (g GitClonedRepository) SetConfig(key, value string) error {
+	slog.Debug("setting config...", "key", key, "value", value)
+
+	command, stdOut, stdErr := g.Command(
+		"git",
+		"config",
+		key,
+		value,
+	)
+	command.Dir = g.FullPath
+
+	err := command.Run()
+	slog.Debug(stdOut.String())
+
+	if err != nil {
+		return fmt.Errorf("failed to set config: %s (%w)", stdErr, err)
+	}
+
+	slog.Debug("Config set.")
 
 	return nil
 }

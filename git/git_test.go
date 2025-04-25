@@ -117,12 +117,14 @@ func TestGitRepository_Command(t *testing.T) {
 			name:       "ls",
 			arg:        []string{"-1"},
 			want:       &exec.Cmd{},
-			wantStdOut: "git.go\ngit_test.go\n",
+			wantStdOut: "git.go\ngit_test.go\ntest_repositories\n",
 			wantStdErr: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			// Don't need to worry about creating an actual git repository while
+			// just testing a generic command
 			var g GitRepository
 			gotCommand, gotStdOut, gotStdErr := g.Command(tt.name, tt.arg...)
 			gotCommand.Run()
@@ -135,4 +137,33 @@ func TestGitRepository_Command(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGitRepository_GetFiles_Empty(t *testing.T) {
+	g, err := NewRemoteRepository("", "test_org", "test_repo_for_getfiles")
+
+	if err != nil {
+		t.Fatalf("could not construct receiver type: %v", err)
+	}
+
+	err = g.CreateBareRepo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.DeleteRepo()
+
+	gotFiles, gotErr := g.GetFiles("main")
+
+	if gotErr == nil {
+		t.Fatal("GetFiles() did not return error and should have")
+	}
+
+	if !errors.As(gotErr, &EmptyRepositoryError{}) {
+		t.Errorf("GetFiles() did not return expected error: %v", gotErr)
+	}
+
+	if len(gotFiles) > 0 {
+		t.Errorf("GetFiles() = %v, want empty slice", gotFiles)
+	}
+
 }

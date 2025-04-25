@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"gitgud/git"
 	"log/slog"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"gitgud/git"
 )
 
 func TestDefaultBranch(t *testing.T) {
@@ -95,6 +95,16 @@ func TestClone(t *testing.T) {
 	}
 
 	err = clonedRepo.AddAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = clonedRepo.SetConfig("user.name", "Nunya Bidness")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = clonedRepo.SetConfig("user.email", "nunya@bidness.com")
 	if err != nil {
 		t.Fatal(err)
 	}
