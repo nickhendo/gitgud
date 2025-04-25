@@ -14,6 +14,7 @@ func init() {
 	if testing.Testing() {
 		appEnv = "test"
 	}
+	slog.Info("settings config", "coniguration", appEnv)
 	Settings = getSettings(appEnv)
 }
 
@@ -79,6 +80,8 @@ func ProductionSettings() AppSettings {
 
 func TestSettings() AppSettings {
 	settings := DevelopmentSettings()
+	settings.RepositoriesLocation = "test_repositories"
+	settings.ClonesLocation = "test_clones"
 	settings.AppEnv = Testing
 	settings.Debug = true
 	return settings
