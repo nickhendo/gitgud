@@ -1,7 +1,9 @@
 package assert
 
 import (
+	"html/template"
 	"log/slog"
+	"os"
 	"reflect"
 	"runtime"
 	"runtime/debug"
@@ -85,3 +87,24 @@ func Nil(item any, msg string, data ...any) {
 	}
 }
 
+func TemplateFound(templateName string, templateMap map[string]*template.Template, data ...any) {
+	_, templateInTemplates := templateMap[templateName]
+	if !templateInTemplates {
+		slog.Error("Template#NotFound encountered")
+
+		data = append(data, "template name")
+		data = append(data, templateName)
+		data = append(data, "template map")
+		data = append(data, templateMap)
+
+		workingDirectory, err := os.Getwd()
+		if err != nil {
+			data = append(data, "Error getting current working directory")
+			data = append(data, err)
+		} else {
+			data = append(data, "Current Working Directory")
+			data = append(data, workingDirectory)
+		}
+		runAssert("Template not found", data...)
+	}
+}
