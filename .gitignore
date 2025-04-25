@@ -8,4 +8,8 @@ result*
 tmp/
 
 repositories/
+test_repositories/
+git/test_repositories/
+
 clones/
+test_clones/
