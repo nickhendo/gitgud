@@ -1,0 +1,78 @@
+{{ define "main" }}
+<div class="max-w-6xl mx-auto px-4 py-8">
+	<!-- Header -->
+	<div class="mb-8">
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<div>
+				<h1 class="text-3xl font-bold text-gray-800">username / <span class="text-blue-600">repo-name</span>
+				</h1>
+				<div class="mt-2 flex items-center gap-2 text-sm text-gray-500">
+					<span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">Public</span>
+					<span>⭐ 73 stars</span>
+					<span>• Updated 3 days ago</span>
+				</div>
+				<p class="mt-3 text-gray-600">A clean and fast implementation of something very useful.</p>
+			</div>
+			<div class="flex gap-2">
+				<button
+					class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-sm font-medium rounded-lg transition">Clone</button>
+				<button
+					class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">Settings</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- File Browser -->
+	<div class="bg-white shadow-sm rounded-lg border overflow-hidden">
+		<div class="flex items-center justify-between px-6 py-4 border-b bg-gray-100 text-sm font-medium text-gray-700">
+			<span>Files</span>
+			<span>Latest commit: <span class="font-normal text-gray-500">a1b2c3d</span></span>
+		</div>
+
+		<div class="divide-y text-sm">
+			<!-- Folder -->
+			<a href="#" class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition group">
+				<div class="flex items-center gap-3 text-gray-800">
+					<svg class="w-5 h-5 text-yellow-400 group-hover:text-yellow-500" fill="currentColor"
+						viewBox="0 0 20 20">
+						<path d="M2 4a2 2 0 012-2h4l2 2h6a2 2 0 012 2v1H2V4z" />
+						<path d="M2 8h16v6a2 2 0 01-2 2H4a2 2 0 01-2-2V8z" />
+					</svg>
+					<span>src/</span>
+				</div>
+				<span class="text-gray-500 text-xs">Last modified 2d ago</span>
+			</a>
+
+			{{ range .Files }}
+			<a href="#" class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition group">
+				<div class="flex items-center gap-3 text-gray-800">
+					<svg class="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="currentColor"
+						viewBox="0 0 20 20">
+						<path d="M4 2a2 2 0 00-2 2v12a2 2 0 002 2h4l2-2h6a2 2 0 002-2V6l-4-4H4z" />
+					</svg>
+					<span>{{ .Name }}</span>
+				</div>
+				<span class="text-gray-500 text-xs">Last modified 1h ago</span>
+			</a>
+			{{ end }}
+		</div>
+	</div>
+
+	<!-- Language breakdown (optional) -->
+	<div class="mt-8">
+		<h2 class="text-sm font-medium text-gray-700 mb-2">Languages</h2>
+		<div class="flex items-center gap-4">
+			<div class="flex items-center gap-2 text-sm">
+				<span class="w-3 h-3 bg-blue-500 rounded-full"></span> Go (72%)
+			</div>
+			<div class="flex items-center gap-2 text-sm">
+				<span class="w-3 h-3 bg-yellow-400 rounded-full"></span> JavaScript (20%)
+			</div>
+			<div class="flex items-center gap-2 text-sm">
+				<span class="w-3 h-3 bg-purple-400 rounded-full"></span> Markdown (8%)
+			</div>
+		</div>
+	</div>
+</div>
+
+{{ end }}
